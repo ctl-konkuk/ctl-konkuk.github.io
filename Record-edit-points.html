@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <title>Timekeeping Notepad with Stopwatch</title>
+    <style>
+      /* Basic page styling */
+      body {
+        margin: 0;
+        padding: 20px;
+        font-family: Arial, sans-serif;
+        background: #f7f7f7;
+      }
+      
+      h1 {
+        text-align: center;
+        color: #333;
+      }
+      
+      /* Button styling */
+      button {
+        padding: 10px 20px;
+        font-size: 1.1rem;
+        border: none;
+        border-radius: 4px;
+        cursor: pointer;
+      }
+      #startButton {
+        background-color: #007acc;
+        color: #fff;
+        margin-right: 10px;
+      }
+      #endButton {
+        background-color: #d9534f;
+        color: #fff;
+      }
+      /* Save button styled as a success button */
+      #saveButton {
+        background-color: #5cb85c;
+        color: #fff;
+        margin-left: 10px;
+      }
+      
+      /* Stopwatch display styling */
+      #stopwatch {
+        text-align: center;
+        font-size: 2rem;
+        margin: 20px 0;
+        color: #007acc;
+      }
+      
+      /* Note input field styling */
+      #noteInput {
+        display: block;
+        width: 80%;
+        max-width: 600px;
+        margin: 0 auto 20px auto;
+        padding: 10px;
+        font-size: 1.1rem;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+      }
+      
+      /* Container for recorded notes */
+      #notes {
+        width: 80%;
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      
+      .note {
+        background: #fff;
+        border: 1px solid #ddd;
+        border-left: 5px solid #007acc;
+        padding: 10px;
+        margin-bottom: 10px;
+        border-radius: 3px;
+      }
+      
+      .note .time {
+        font-weight: bold;
+        margin-right: 10px;
+        color: #555;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Timekeeping Notepad</h1>
+    
+    <!-- Control Buttons -->
+    <div style="text-align: center;">
+      <button id="startButton">Start Recording</button>
+      <button id="endButton" style="display: none;">End Recording</button>
+      <button id="saveButton">Save</button>
+    </div>
+    
+    <!-- Stopwatch display (initially at 00:00:00) -->
+    <div id="stopwatch">Stopwatch: 00:00:00</div>
+    
+    <!-- Note entry field (disabled until session starts) -->
+    <input id="noteInput" type="text" placeholder="Type your note and press Enter" disabled />
+    
+    <!-- Container where recorded notes will appear -->
+    <div id="notes"></div>
+    
+    <script>
+      // Global state variables
+      let isRecording = false;       // true when a session is active
+      let recordingStart = null;     // timestamp when session began
+      let stopwatchInterval = null;  // handle for setInterval
+      let noteStartTime = null;      // holds the stopwatch time when first keystroke happens for this note
+      
+      // Helper function to format a duration (in milliseconds) as HH:MM:SS
+      function formatElapsed(ms) {
+        const totalSeconds = Math.floor(ms / 1000);
+        const seconds = totalSeconds % 60;
+        const minutes = Math.floor(totalSeconds / 60) % 60;
+        const hours = Math.floor(totalSeconds / 3600);
+        return String(hours).padStart(2, '0') + ':' +
+               String(minutes).padStart(2, '0') + ':' +
+               String(seconds).padStart(2, '0');
+      }
+      
+      // Update the stopwatch display based on elapsed time since recordingStart
+      function updateStopwatch() {
+        const elapsed = Date.now() - recordingStart;
+        document.getElementById("stopwatch").textContent = "Stopwatch: " + formatElapsed(elapsed);
+      }
+      
+      // START RECORDING: Begin a new recording session
+      document.getElementById("startButton").addEventListener("click", function() {
+        if (!isRecording) {
+          isRecording = true;
+          recordingStart = Date.now();
+          noteStartTime = null; // Clear any previous note start time
+          
+          // Reset and start the stopwatch
+          document.getElementById("stopwatch").textContent = "Stopwatch: 00:00:00";
+          stopwatchInterval = setInterval(updateStopwatch, 500);
+          
+          // Enable the note input field and focus it
+          const noteInput = document.getElementById("noteInput");
+          noteInput.disabled = false;
+          noteInput.value = "";
+          noteInput.focus();
+          
+          // Update the UI: hide the Start button, show the End button
+          document.getElementById("startButton").style.display = "none";
+          document.getElementById("endButton").style.display = "inline-block";
+        }
+      });
+      
+      // END RECORDING: Stop the current recording session
+      document.getElementById("endButton").addEventListener("click", function() {
+        if (isRecording) {
+          isRecording = false;
+          clearInterval(stopwatchInterval);
+          
+          // Optionally, leave the final stopwatch reading visible or reset it:
+          document.getElementById("stopwatch").textContent = "Stopwatch: 00:00:00";
+          
+          // Disable the note input until a new session is started
+          document.getElementById("noteInput").disabled = true;
+          noteStartTime = null;
+          
+          // Reset the buttons: show Start button, hide End button
+          document.getElementById("startButton").style.display = "inline-block";
+          document.getElementById("endButton").style.display = "none";
+        }
+      });
+      
+      // Capture the note's start time (when the user begins typing)
+      const noteInput = document.getElementById("noteInput");
+      noteInput.addEventListener("input", function() {
+        // Capture on the first keystroke only
+        if (noteInput.value.length > 0 && noteStartTime === null) {
+          noteStartTime = formatElapsed(Date.now() - recordingStart);
+        } else if (noteInput.value.length === 0) {
+          // If input is cleared, cancel any captured start time
+          noteStartTime = null;
+        }
+      });
+      
+      // Record the note when the Enter key is pressed
+      noteInput.addEventListener("keydown", function (event) {
+        if (event.key === "Enter") {
+          const noteText = noteInput.value.trim();
+          if (noteText !== "") {
+            // If no start time was captured (e.g., if text was pasted), capture current elapsed time
+            if (!noteStartTime) {
+              noteStartTime = formatElapsed(Date.now() - recordingStart);
+            }
+            
+            // Create a new note element with the captured stopwatch time and the entered note text
+            const noteDiv = document.createElement("div");
+            noteDiv.className = "note";
+            noteDiv.innerHTML =
+              "<span class='time'>" + noteStartTime + ":</span>" +
+              "<span class='text'>" + noteText + "</span>";
+              
+            // Insert the new note at the beginning so that edit points are in descending order.
+            const notesContainer = document.getElementById("notes");
+            notesContainer.insertBefore(noteDiv, notesContainer.firstChild);
+            
+            // Clear the input field and reset noteStartTime for the next note
+            noteInput.value = "";
+            noteStartTime = null;
+          }
+        }
+      });
+      
+      // Save Button: Generate the text file in the desired format when clicked
+      document.getElementById("saveButton").addEventListener("click", function() {
+        // Helper to pad numbers with a leading zero
+        function pad(num) {
+          return num.toString().padStart(2, '0');
+        }
+        const now = new Date();
+        const year = now.getFullYear();
+        const month = pad(now.getMonth() + 1);
+        const day = pad(now.getDate());
+        const hours = pad(now.getHours());
+        const minutes = pad(now.getMinutes());
+        // Format as "yyyy-mm-dd HH:MM"
+        const formattedDateTime = year + "-" + month + "-" + day + " " + hours + ":" + minutes;
+        
+        // Start with the header line and a blank line
+        let content = "# " + formattedDateTime + " edit point\n\n";
+        
+        // Gather all recorded notes, then reverse them to be in ascending order (oldest first)
+        const notesNodeList = document.querySelectorAll("#notes .note");
+        const notes = Array.from(notesNodeList).reverse();
+        notes.forEach(function(noteElement) {
+          // Get the time (remove the trailing colon) and the note text
+          let timeText = noteElement.querySelector(".time").textContent;
+          if (timeText.endsWith(":")) {
+            timeText = timeText.slice(0, -1);
+          }
+          const noteText = noteElement.querySelector(".text").textContent;
+          content += timeText + "\n" + noteText + "\n\n";
+        });
+        
+        // Force a download of the file using a Blob
+        const blob = new Blob([content], { type: "text/plain" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        // Create a safe filename (avoid spaces and colons)
+        const safeFileNameDate = formattedDateTime.replace(" ", "_").replace(":", "-");
+        a.href = url;
+        a.download = "edit_points_" + safeFileNameDate + ".txt";
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
+      });
+    </script>
+  </body>
+</html>
