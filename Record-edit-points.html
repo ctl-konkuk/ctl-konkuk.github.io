@@ -41,7 +41,7 @@
         margin-left: 10px;
       }
       
-      /* Stopwatch and the custom starting time input styling */
+      /* Stopwatch and custom starting time input styling */
       #stopwatch {
         text-align: center;
         font-size: 2rem;
@@ -148,9 +148,9 @@
       // START RECORDING: Begin a new recording session
       document.getElementById("startButton").addEventListener("click", function() {
         if (!isRecording) {
-          // Try to parse user-specified starting time (expected format HH:MM:SS)
+          // Try to parse the user-specified starting time (expected format HH:MM:SS)
           let userStart = document.getElementById("startingPoint").value.trim();
-          startingOffset = 0; // default offset is zero
+          startingOffset = 0; // default offset is zero if format is invalid or empty
           if (userStart !== "") {
             const parts = userStart.split(':');
             if (parts.length === 3) {
@@ -241,7 +241,7 @@
       
       // Save Button: Export notes as a text file
       document.getElementById("saveButton").addEventListener("click", function() {
-        // Format the current date and time for the file header and filename
+        // Helper to pad numbers with leading zeros
         function pad(num) {
           return num.toString().padStart(2, '0');
         }
@@ -255,7 +255,7 @@
         
         let content = "# " + formattedDateTime + " edit point\n\n";
         
-        // Get all recorded notes and reverse the order so that the file is in ascending order
+        // Get all recorded notes, reversed so that the output file is in ascending order (oldest first)
         const notesNodeList = document.querySelectorAll("#notes .note");
         const notes = Array.from(notesNodeList).reverse();
         notes.forEach(function(noteElement) {
@@ -271,6 +271,7 @@
         const blob = new Blob([content], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
+        // Create a safe filename (avoid spaces and colons)
         const safeFileNameDate = formattedDateTime.replace(" ", "_").replace(":", "-");
         a.href = url;
         a.download = "edit_points_" + safeFileNameDate + ".txt";
@@ -278,6 +279,14 @@
         a.click();
         document.body.removeChild(a);
         URL.revokeObjectURL(url);
+      });
+      
+      // Prevent refresh-related keystrokes (e.g., F5, Ctrl+R, Command+R)
+      document.addEventListener("keydown", function(event) {
+        if (event.key === "F5" ||
+           ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === "r")) {
+          event.preventDefault();
+        }
       });
     </script>
   </body>
