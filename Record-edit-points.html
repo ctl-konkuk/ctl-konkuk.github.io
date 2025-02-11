@@ -41,12 +41,22 @@
         margin-left: 10px;
       }
       
-      /* Stopwatch display styling */
+      /* Stopwatch and the custom starting time input styling */
       #stopwatch {
         text-align: center;
         font-size: 2rem;
         margin: 20px 0;
         color: #007acc;
+      }
+      #startingContainer {
+        text-align: center;
+        margin-bottom: 10px;
+      }
+      #startingPoint {
+        width: 100px;
+        padding: 5px;
+        font-size: 1rem;
+        text-align: center;
       }
       
       /* Note input field styling */
@@ -87,6 +97,12 @@
   <body>
     <h1>Timekeeping Notepad</h1>
     
+    <!-- Container for custom starting time -->
+    <div id="startingContainer">
+      <label for="startingPoint">Starting Time (HH:MM:SS): </label>
+      <input id="startingPoint" type="text" placeholder="00:00:00" />
+    </div>
+    
     <!-- Control Buttons -->
     <div style="text-align: center;">
       <button id="startButton">Start Recording</button>
@@ -94,23 +110,24 @@
       <button id="saveButton">Save</button>
     </div>
     
-    <!-- Stopwatch display (initially at 00:00:00) -->
+    <!-- Stopwatch display -->
     <div id="stopwatch">Stopwatch: 00:00:00</div>
     
-    <!-- Note entry field (disabled until session starts) -->
+    <!-- Note entry field -->
     <input id="noteInput" type="text" placeholder="Type your note and press Enter" disabled />
     
-    <!-- Container where recorded notes will appear -->
+    <!-- Container for recorded notes -->
     <div id="notes"></div>
     
     <script>
       // Global state variables
       let isRecording = false;       // true when a session is active
-      let recordingStart = null;     // timestamp when session began
+      let recordingStart = null;     // system time when session began
+      let startingOffset = 0;        // user-defined offset in milliseconds
       let stopwatchInterval = null;  // handle for setInterval
-      let noteStartTime = null;      // holds the stopwatch time when first keystroke happens for this note
+      let noteStartTime = null;      // stopwatch time when the first keystroke happens for a note
       
-      // Helper function to format a duration (in milliseconds) as HH:MM:SS
+      // Helper function to format a duration (in ms) as HH:MM:SS
       function formatElapsed(ms) {
         const totalSeconds = Math.floor(ms / 1000);
         const seconds = totalSeconds % 60;
@@ -121,84 +138,97 @@
                String(seconds).padStart(2, '0');
       }
       
-      // Update the stopwatch display based on elapsed time since recordingStart
+      // Update stopwatch display using the startingOffset and elapsed time from recordingStart
       function updateStopwatch() {
         const elapsed = Date.now() - recordingStart;
-        document.getElementById("stopwatch").textContent = "Stopwatch: " + formatElapsed(elapsed);
+        const totalElapsed = startingOffset + elapsed;
+        document.getElementById("stopwatch").textContent = "Stopwatch: " + formatElapsed(totalElapsed);
       }
       
       // START RECORDING: Begin a new recording session
       document.getElementById("startButton").addEventListener("click", function() {
         if (!isRecording) {
+          // Try to parse user-specified starting time (expected format HH:MM:SS)
+          let userStart = document.getElementById("startingPoint").value.trim();
+          startingOffset = 0; // default offset is zero
+          if (userStart !== "") {
+            const parts = userStart.split(':');
+            if (parts.length === 3) {
+              const hours = parseInt(parts[0], 10);
+              const minutes = parseInt(parts[1], 10);
+              const seconds = parseInt(parts[2], 10);
+              if (!isNaN(hours) && !isNaN(minutes) && !isNaN(seconds)) {
+                startingOffset = ((hours * 3600) + (minutes * 60) + seconds) * 1000;
+              }
+            }
+          }
+          
           isRecording = true;
           recordingStart = Date.now();
           noteStartTime = null; // Clear any previous note start time
           
-          // Reset and start the stopwatch
-          document.getElementById("stopwatch").textContent = "Stopwatch: 00:00:00";
+          // Set initial stopwatch display to the custom starting time
+          document.getElementById("stopwatch").textContent = "Stopwatch: " + formatElapsed(startingOffset);
           stopwatchInterval = setInterval(updateStopwatch, 500);
           
-          // Enable the note input field and focus it
+          // Enable and focus the note input field
           const noteInput = document.getElementById("noteInput");
           noteInput.disabled = false;
           noteInput.value = "";
           noteInput.focus();
           
-          // Update the UI: hide the Start button, show the End button
+          // Update UI: hide the Start button, show the End button
           document.getElementById("startButton").style.display = "none";
           document.getElementById("endButton").style.display = "inline-block";
         }
       });
       
-      // END RECORDING: Stop the current recording session
+      // END RECORDING: Stop the current session
       document.getElementById("endButton").addEventListener("click", function() {
         if (isRecording) {
           isRecording = false;
           clearInterval(stopwatchInterval);
           
-          // Optionally, leave the final stopwatch reading visible or reset it:
+          // Optionally, reset the stopwatch display
           document.getElementById("stopwatch").textContent = "Stopwatch: 00:00:00";
           
-          // Disable the note input until a new session is started
+          // Disable note input until a new session starts
           document.getElementById("noteInput").disabled = true;
           noteStartTime = null;
           
-          // Reset the buttons: show Start button, hide End button
+          // Update UI: show the Start button, hide the End button
           document.getElementById("startButton").style.display = "inline-block";
           document.getElementById("endButton").style.display = "none";
         }
       });
       
-      // Capture the note's start time (when the user begins typing)
+      // Capture the note's start time when the user begins typing
       const noteInput = document.getElementById("noteInput");
       noteInput.addEventListener("input", function() {
-        // Capture on the first keystroke only
         if (noteInput.value.length > 0 && noteStartTime === null) {
-          noteStartTime = formatElapsed(Date.now() - recordingStart);
+          noteStartTime = formatElapsed(startingOffset + (Date.now() - recordingStart));
         } else if (noteInput.value.length === 0) {
-          // If input is cleared, cancel any captured start time
           noteStartTime = null;
         }
       });
       
-      // Record the note when the Enter key is pressed
+      // Add a note when the Enter key is pressed
       noteInput.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
           const noteText = noteInput.value.trim();
           if (noteText !== "") {
-            // If no start time was captured (e.g., if text was pasted), capture current elapsed time
             if (!noteStartTime) {
-              noteStartTime = formatElapsed(Date.now() - recordingStart);
+              noteStartTime = formatElapsed(startingOffset + (Date.now() - recordingStart));
             }
             
-            // Create a new note element with the captured stopwatch time and the entered note text
+            // Create a new note element with the captured stopwatch time and note text
             const noteDiv = document.createElement("div");
             noteDiv.className = "note";
             noteDiv.innerHTML =
               "<span class='time'>" + noteStartTime + ":</span>" +
               "<span class='text'>" + noteText + "</span>";
-              
-            // Insert the new note at the beginning so that edit points are in descending order.
+            
+            // Insert the note at the beginning so that edit points are in descending order
             const notesContainer = document.getElementById("notes");
             notesContainer.insertBefore(noteDiv, notesContainer.firstChild);
             
@@ -209,9 +239,9 @@
         }
       });
       
-      // Save Button: Generate the text file in the desired format when clicked
+      // Save Button: Export notes as a text file
       document.getElementById("saveButton").addEventListener("click", function() {
-        // Helper to pad numbers with a leading zero
+        // Format the current date and time for the file header and filename
         function pad(num) {
           return num.toString().padStart(2, '0');
         }
@@ -221,17 +251,14 @@
         const day = pad(now.getDate());
         const hours = pad(now.getHours());
         const minutes = pad(now.getMinutes());
-        // Format as "yyyy-mm-dd HH:MM"
         const formattedDateTime = year + "-" + month + "-" + day + " " + hours + ":" + minutes;
         
-        // Start with the header line and a blank line
         let content = "# " + formattedDateTime + " edit point\n\n";
         
-        // Gather all recorded notes, then reverse them to be in ascending order (oldest first)
+        // Get all recorded notes and reverse the order so that the file is in ascending order
         const notesNodeList = document.querySelectorAll("#notes .note");
         const notes = Array.from(notesNodeList).reverse();
         notes.forEach(function(noteElement) {
-          // Get the time (remove the trailing colon) and the note text
           let timeText = noteElement.querySelector(".time").textContent;
           if (timeText.endsWith(":")) {
             timeText = timeText.slice(0, -1);
@@ -240,11 +267,10 @@
           content += timeText + "\n" + noteText + "\n\n";
         });
         
-        // Force a download of the file using a Blob
+        // Trigger the file download using a Blob
         const blob = new Blob([content], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        // Create a safe filename (avoid spaces and colons)
         const safeFileNameDate = formattedDateTime.replace(" ", "_").replace(":", "-");
         a.href = url;
         a.download = "edit_points_" + safeFileNameDate + ".txt";
