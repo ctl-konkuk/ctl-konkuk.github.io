@@ -11,12 +11,10 @@
         font-family: Arial, sans-serif;
         background: #f7f7f7;
       }
-      
       h1 {
         text-align: center;
         color: #333;
       }
-      
       /* Button styling */
       button {
         padding: 10px 20px;
@@ -34,13 +32,11 @@
         background-color: #d9534f;
         color: #fff;
       }
-      /* Save button styled as a success button */
       #saveButton {
         background-color: #5cb85c;
         color: #fff;
         margin-left: 10px;
       }
-      
       /* Stopwatch and custom starting time input styling */
       #stopwatch {
         text-align: center;
@@ -58,7 +54,6 @@
         font-size: 1rem;
         text-align: center;
       }
-      
       /* Note input field styling */
       #noteInput {
         display: block;
@@ -70,14 +65,12 @@
         border: 1px solid #ccc;
         border-radius: 4px;
       }
-      
       /* Container for recorded notes */
       #notes {
         width: 80%;
         max-width: 600px;
         margin: 0 auto;
       }
-      
       .note {
         background: #fff;
         border: 1px solid #ddd;
@@ -85,72 +78,107 @@
         padding: 10px;
         margin-bottom: 10px;
         border-radius: 3px;
+        position: relative;
       }
-      
       .note .time {
         font-weight: bold;
         margin-right: 10px;
         color: #555;
       }
+      .note .text {
+        margin-right: 60px; /* reserve space for action buttons */
+      }
+      /* Delete button styling – positioned in the top right. */
+      .delete-button {
+        position: absolute;
+        right: 10px;
+        top: 10px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+      }
+      /* Edit button styling – positioned near the delete button */
+      .edit-button {
+        position: absolute;
+        right: 35px;
+        top: 10px;
+        background: none;
+        border: none;
+        cursor: pointer;
+        padding: 0;
+      }
+      /* Input field for editing notes */
+      .edit-input {
+        font-size: 1rem;
+        margin-right: 60px;
+        width: calc(100% - 70px);
+      }
     </style>
   </head>
   <body>
     <h1>Timekeeping Notepad</h1>
-    
     <!-- Container for custom starting time -->
     <div id="startingContainer">
       <label for="startingPoint">Starting Time (HH:MM:SS): </label>
       <input id="startingPoint" type="text" placeholder="00:00:00" />
     </div>
-    
     <!-- Control Buttons -->
     <div style="text-align: center;">
       <button id="startButton">Start Recording</button>
       <button id="endButton" style="display: none;">End Recording</button>
       <button id="saveButton">Save</button>
     </div>
-    
     <!-- Stopwatch display -->
     <div id="stopwatch">Stopwatch: 00:00:00</div>
-    
     <!-- Note entry field -->
     <input id="noteInput" type="text" placeholder="Type your note and press Enter" disabled />
-    
     <!-- Container for recorded notes -->
     <div id="notes"></div>
-    
     <script>
       // Global state variables
-      let isRecording = false;       // true when a session is active
-      let recordingStart = null;     // system time when session began
-      let startingOffset = 0;        // user-defined offset in milliseconds
-      let stopwatchInterval = null;  // handle for setInterval
-      let noteStartTime = null;      // stopwatch time when the first keystroke happens for a note
-      
-      // Helper function to format a duration (in ms) as HH:MM:SS
+      let isRecording = false;          // true when a session is active
+      let recordingStart = null;        // system time when session began
+      let startingOffset = 0;           // user-defined offset in milliseconds
+      let stopwatchInterval = null;     // handle for setInterval
+      let noteStartTime = null;         // stopwatch time when the first keystroke is made for a note
+
+      // ---- SVG Icon Definitions ----
+      // Edit icon: A pen holding a note (pencil-square)
+      const editIconSVG = '<svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" class="icon-md">'+
+                          '<path fill-rule="evenodd" clip-rule="evenodd" d="M13.2929 4.29291C15.0641 2.52167 17.9359 2.52167 19.7071 4.2929C21.4784 6.06414 21.4784 8.93588 19.7071 10.7071L18.7073 11.7069L11.6135 18.8007C10.8766 19.5376 9.92793 20.0258 8.89999 20.1971L4.16441 20.9864C3.84585 21.0395 3.52127 20.9355 3.29291 20.7071C3.06454 20.4788 2.96053 20.1542 3.01362 19.8356L3.80288 15.1C3.9742 14.0721 4.46243 13.1234 5.19932 12.3865L13.2929 4.29291ZM13 7.41422L6.61353 13.8007C6.1714 14.2428 5.87846 14.8121 5.77567 15.4288L5.21656 18.7835L8.57119 18.2244C9.18795 18.1216 9.75719 17.8286 10.1993 17.3865L16.5858 11L13 7.41422ZM18 9.5858L14.4142 6.00001L14.7071 5.70712C15.6973 4.71693 17.3027 4.71693 18.2929 5.70712C19.2831 6.69731 19.2831 8.30272 18.2929 9.29291L18 9.5858Z" fill="currentColor"></path>'+
+                          '</svg>';
+      // Save icon: A check mark
+      const saveIconSVG = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="#000" viewBox="0 0 16 16">'+
+                          '<path d="M13.854 3.146a.5.5 0 0 0-.708 0L6.5 9.793 3.854 7.146a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l7-7a.5.5 0 0 0 0-.708z"/>'+
+                          '</svg>';
+      // Delete icon: A trash can (using red fill)
+      const deleteIconSVG = '<svg stroke="currentColor" fill="none" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true" height="1em" width="1em" xmlns="http://www.w3.org/2000/svg">'+
+                            '<path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path>' +
+                            '</svg>';
+      // Helper: Format a duration (in ms) as HH:MM:SS.
       function formatElapsed(ms) {
         const totalSeconds = Math.floor(ms / 1000);
         const seconds = totalSeconds % 60;
         const minutes = Math.floor(totalSeconds / 60) % 60;
         const hours = Math.floor(totalSeconds / 3600);
         return String(hours).padStart(2, '0') + ':' +
-               String(minutes).padStart(2, '0') + ':' +
-               String(seconds).padStart(2, '0');
+              String(minutes).padStart(2, '0') + ':' +
+              String(seconds).padStart(2, '0');
       }
-      
-      // Update stopwatch display using the startingOffset and elapsed time from recordingStart
+
+      // Update the stopwatch display.
       function updateStopwatch() {
         const elapsed = Date.now() - recordingStart;
         const totalElapsed = startingOffset + elapsed;
         document.getElementById("stopwatch").textContent = "Stopwatch: " + formatElapsed(totalElapsed);
       }
-      
-      // START RECORDING: Begin a new recording session
+
+      // START RECORDING: Begin a new session.
       document.getElementById("startButton").addEventListener("click", function() {
         if (!isRecording) {
-          // Try to parse the user-specified starting time (expected format HH:MM:SS)
           let userStart = document.getElementById("startingPoint").value.trim();
-          startingOffset = 0; // default offset is zero if format is invalid or empty
+          startingOffset = 0;
           if (userStart !== "") {
             const parts = userStart.split(':');
             if (parts.length === 3) {
@@ -162,47 +190,35 @@
               }
             }
           }
-          
           isRecording = true;
           recordingStart = Date.now();
-          noteStartTime = null; // Clear any previous note start time
-          
-          // Set initial stopwatch display to the custom starting time
+          noteStartTime = null;
           document.getElementById("stopwatch").textContent = "Stopwatch: " + formatElapsed(startingOffset);
           stopwatchInterval = setInterval(updateStopwatch, 500);
-          
-          // Enable and focus the note input field
           const noteInput = document.getElementById("noteInput");
           noteInput.disabled = false;
           noteInput.value = "";
           noteInput.focus();
-          
-          // Update UI: hide the Start button, show the End button
+          // Update UI.
           document.getElementById("startButton").style.display = "none";
           document.getElementById("endButton").style.display = "inline-block";
         }
       });
-      
-      // END RECORDING: Stop the current session
+
+      // END RECORDING: Stop the session.
       document.getElementById("endButton").addEventListener("click", function() {
         if (isRecording) {
           isRecording = false;
           clearInterval(stopwatchInterval);
-          
-          // Optionally, reset the stopwatch display
           document.getElementById("stopwatch").textContent = "Stopwatch: 00:00:00";
-          
-          // Disable note input until a new session starts
           document.getElementById("noteInput").disabled = true;
           noteStartTime = null;
-          
-          // Update UI: show the Start button, hide the End button
           document.getElementById("startButton").style.display = "inline-block";
           document.getElementById("endButton").style.display = "none";
         }
       });
-      
-      // Capture the note's start time when the user begins typing
+
+      // Record note start time when first typing.
       const noteInput = document.getElementById("noteInput");
       noteInput.addEventListener("input", function() {
         if (noteInput.value.length > 0 && noteStartTime === null) {
@@ -211,8 +227,8 @@
           noteStartTime = null;
         }
       });
-      
-      // Add a note when the Enter key is pressed
+
+      // Add a note when Enter is pressed.
       noteInput.addEventListener("keydown", function (event) {
         if (event.key === "Enter") {
           const noteText = noteInput.value.trim();
@@ -220,19 +236,53 @@
             if (!noteStartTime) {
               noteStartTime = formatElapsed(startingOffset + (Date.now() - recordingStart));
             }
-            
-            // Create a new note element with the captured stopwatch time and note text
+            // Create the note container.
             const noteDiv = document.createElement("div");
             noteDiv.className = "note";
             noteDiv.innerHTML =
               "<span class='time'>" + noteStartTime + ":</span>" +
               "<span class='text'>" + noteText + "</span>";
             
-            // Insert the note at the beginning so that edit points are in descending order
-            const notesContainer = document.getElementById("notes");
-            notesContainer.insertBefore(noteDiv, notesContainer.firstChild);
+            // Create the edit button.
+            const editButton = document.createElement("button");
+            editButton.className = "edit-button";
+            // Initially show the pen icon.
+            editButton.innerHTML = editIconSVG;
+            editButton.addEventListener("click", function() {
+              const textSpan = noteDiv.querySelector(".text");
+              let inputField = noteDiv.querySelector("input.edit-input");
+              if (!inputField) {
+                // Switch to edit mode.
+                inputField = document.createElement("input");
+                inputField.type = "text";
+                inputField.value = textSpan.textContent;
+                inputField.className = "edit-input";
+                textSpan.style.display = "none";
+                noteDiv.insertBefore(inputField, editButton);
+                inputField.focus();
+                // Switch icon to a check mark to indicate saving.
+                editButton.innerHTML = saveIconSVG;
+              } else {
+                // Save mode: update text and exit edit mode.
+                textSpan.textContent = inputField.value;
+                inputField.remove();
+                textSpan.style.display = "";
+                editButton.innerHTML = editIconSVG;
+              }
+            });
+            noteDiv.appendChild(editButton);
             
-            // Clear the input field and reset noteStartTime for the next note
+            // Create the delete button.
+            const deleteButton = document.createElement("button");
+            deleteButton.className = "delete-button";
+            deleteButton.innerHTML = deleteIconSVG;
+            deleteButton.addEventListener("click", function() {
+              noteDiv.remove();
+            });
+            noteDiv.appendChild(deleteButton);
+            
+            // Insert the new note at the top.
+            document.getElementById("notes").insertBefore(noteDiv, document.getElementById("notes").firstChild);
             noteInput.value = "";
             noteStartTime = null;
           }
@@ -241,7 +291,6 @@
       
       // Save Button: Export notes as a text file
       document.getElementById("saveButton").addEventListener("click", function() {
-        // Helper to pad numbers with leading zeros
         function pad(num) {
           return num.toString().padStart(2, '0');
         }
@@ -252,10 +301,7 @@
         const hours = pad(now.getHours());
         const minutes = pad(now.getMinutes());
         const formattedDateTime = year + "-" + month + "-" + day + " " + hours + ":" + minutes;
-        
         let content = "# " + formattedDateTime + " edit point\n\n";
-        
-        // Get all recorded notes, reversed so that the output file is in ascending order (oldest first)
         const notesNodeList = document.querySelectorAll("#notes .note");
         const notes = Array.from(notesNodeList).reverse();
         notes.forEach(function(noteElement) {
@@ -266,12 +312,9 @@
           const noteText = noteElement.querySelector(".text").textContent;
           content += timeText + "\n" + noteText + "\n\n";
         });
-        
-        // Trigger the file download using a Blob
         const blob = new Blob([content], { type: "text/plain" });
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
-        // Create a safe filename (avoid spaces and colons)
         const safeFileNameDate = formattedDateTime.replace(" ", "_").replace(":", "-");
         a.href = url;
         a.download = "edit_points_" + safeFileNameDate + ".txt";
@@ -290,4 +333,4 @@
       });
     </script>
   </body>
-</html>
+  </html>
